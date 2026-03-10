@@ -107,47 +107,198 @@
     .mpaa-card-badge{position:absolute;bottom:8px;left:6px;font-family:'Bebas Neue',sans-serif;font-size:.65rem;letter-spacing:1px;padding:2px 5px;border-radius:2px;z-index:4;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.65);color:rgba(255,255,255,.85);}
 
     /* SHELF */
-    .shelf-section{position:relative;z-index:1;max-width:1400px;margin:1.5rem auto 0;padding:0 1.5rem 3rem;}
-    .shelf-row{position:relative;margin-bottom:3rem;}
-    .shelf-plank{position:absolute;bottom:-16px;left:-8px;right:-8px;height:16px;background:linear-gradient(180deg,#5a3000 0%,#3a1e00 60%,#2a1400 100%);border-radius:0 0 4px 4px;box-shadow:0 6px 18px rgba(0,0,0,.7),inset 0 2px 0 rgba(255,160,50,.1);}
-    .shelf-plank::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,120,0,.04) 0px,transparent 40px,rgba(0,0,0,.06) 40px,transparent 80px);border-radius:inherit;}
-    .shelf-row-label{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:3px;color:var(--bb-accent);margin-bottom:.8rem;display:flex;align-items:center;gap:.5rem;}
+    .shelf-section{position:relative;z-index:1;max-width:1400px;margin:1.5rem auto 0;padding:0 1.5rem 4rem;}
+
+    /* Each shelf unit: perspective container + wood structure */
+    .shelf-row{
+      position:relative;
+      margin-bottom:5rem;
+      perspective:900px;
+      perspective-origin:50% 60%;
+    }
+    .shelf-row-label{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:3px;color:var(--bb-accent);margin-bottom:1rem;display:flex;align-items:center;gap:.5rem;}
     .shelf-row-label::after{content:'';flex:1;height:1px;background:linear-gradient(to right,rgba(255,215,0,.3),transparent);}
 
-    /* MOVIE GRID */
-    .movie-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px;}
+    /* The actual shelf surface — tilted back in 3D */
+    .shelf-stage{
+      transform: rotateX(4deg);
+      transform-style: preserve-3d;
+      transform-origin: bottom center;
+      padding: 18px 12px 0;
+      background:
+        /* top-face grain highlight */
+        linear-gradient(180deg, rgba(255,180,80,.06) 0%, transparent 30%),
+        /* base shelf colour */
+        linear-gradient(180deg, #4a2800 0%, #2e1600 100%);
+      border-radius: 4px 4px 0 0;
+      position: relative;
+    }
 
-    /* MOVIE CARD */
-    .movie-card{position:relative;cursor:pointer;transition:transform .2s ease;transform-origin:bottom center;animation:cardDrop .35s ease both;}
-    @keyframes cardDrop{from{opacity:0;transform:translateY(-16px) scale(.96);}to{opacity:1;transform:translateY(0) scale(1);}}
-    .movie-card:hover{transform:translateY(-8px) scale(1.04);z-index:10;}
+    /* Back wall of the shelf (the wall behind the tapes) */
+    .shelf-stage::before{
+      content:'';
+      position:absolute;
+      inset:0;
+      background: repeating-linear-gradient(
+        90deg,
+        rgba(0,0,0,.04) 0px, rgba(0,0,0,.04) 1px,
+        transparent 1px, transparent 38px
+      ),repeating-linear-gradient(
+        180deg,
+        rgba(255,140,40,.025) 0px, rgba(255,140,40,.025) 1px,
+        transparent 1px, transparent 24px
+      );
+      border-radius:inherit;
+      pointer-events:none;
+    }
+
+    /* Thick wooden plank shelf face — the 3D front edge */
+    .shelf-plank{
+      position:relative;
+      height:28px;
+      background: linear-gradient(180deg,
+        #6b3a10 0%,   /* bright top edge */
+        #4a2608 18%,
+        #3a1e06 55%,
+        #2a1400 100%  /* deep shadow bottom */
+      );
+      border-radius: 0 0 6px 6px;
+      box-shadow:
+        0 8px 24px rgba(0,0,0,.85),
+        0 2px 0 rgba(255,160,60,.18) inset,   /* top edge highlight */
+        0 -1px 0 rgba(0,0,0,.6) inset;
+    }
+    /* Wood grain on plank face */
+    .shelf-plank::before{
+      content:'';
+      position:absolute;
+      inset:0;
+      background: repeating-linear-gradient(
+        90deg,
+        rgba(0,0,0,.06) 0px, rgba(0,0,0,.06) 2px,
+        transparent 2px, transparent 60px
+      ),repeating-linear-gradient(
+        90deg,
+        rgba(255,120,30,.04) 0px, rgba(255,120,30,.04) 1px,
+        transparent 1px, transparent 30px
+      );
+      border-radius:inherit;
+    }
+    /* Plank side shadow — gives depth illusion on left */
+    .shelf-plank::after{
+      content:'';
+      position:absolute;
+      top:0; bottom:0; left:0;
+      width:40px;
+      background:linear-gradient(to right,rgba(0,0,0,.35),transparent);
+      border-radius:inherit;
+    }
+
+    /* Ambient underlight glow on floor below plank */
+    .shelf-underlight{
+      height:14px;
+      background:radial-gradient(ellipse at 50% 0%, rgba(255,140,30,.18) 0%, transparent 70%);
+      margin-top:0;
+    }
+
+    /* MOVIE GRID — flat inside the tilted stage */
+    .movie-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+      gap:0 6px;
+      align-items:end;   /* tapes sit on the floor */
+      padding-bottom:6px;
+    }
+
+    /* MOVIE CARD — standing upright like a tape on a shelf */
+    .movie-card{
+      position:relative;
+      cursor:pointer;
+      transform-origin: bottom center;
+      transform: translateZ(0);
+      transition: transform .22s cubic-bezier(.22,.68,0,1.4), z-index 0s;
+      animation: cardSlotIn .4s cubic-bezier(.22,.68,0,1.2) both;
+      z-index:1;
+    }
+    @keyframes cardSlotIn{
+      from{opacity:0; transform:translateY(-28px) scaleY(.9);}
+      to  {opacity:1; transform:translateY(0)     scaleY(1);}
+    }
+    /* Pull tape off shelf on hover — lifts up and forward */
+    .movie-card:hover{
+      transform: translateY(-22px) translateZ(40px) scale(1.06);
+      z-index:20;
+    }
     .movie-card:hover .card-shine{opacity:1;}
     .movie-card:hover .hover-info{opacity:1;transform:translateY(0);}
-    .movie-card:hover .card-sleeve img{filter:brightness(1.08) saturate(1.1);}
+    .movie-card:hover .card-sleeve img{filter:brightness(1.1) saturate(1.15);}
+    /* Drop shadow under lifted tape */
+    .movie-card:hover .card-sleeve{
+      box-shadow:
+        6px 18px 28px rgba(0,0,0,.75),
+        -2px 2px 6px rgba(0,0,0,.4),
+        0 0 0 1px rgba(255,215,0,.15);
+    }
 
-    .card-sleeve{position:relative;border-radius:4px;overflow:hidden;background:#1a0a00;aspect-ratio:2/3;box-shadow:4px 4px 12px rgba(0,0,0,.7),-1px 0 0 rgba(255,215,0,.1);}
-    .card-sleeve img{width:100%;height:100%;object-fit:cover;display:block;transition:filter .2s;}
-    .card-sleeve::before{content:'';position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(90deg,var(--bb-blue),var(--bb-yellow),var(--bb-blue));z-index:2;opacity:.85;}
-    .card-shine{position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.12) 0%,transparent 50%);opacity:0;transition:opacity .2s;z-index:3;pointer-events:none;}
-    .card-badge{position:absolute;top:8px;right:8px;background:var(--bb-neon-r);color:white;font-family:'Barlow Condensed',sans-serif;font-size:.6rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:3px 7px;border-radius:2px;z-index:4;box-shadow:0 2px 8px rgba(255,34,68,.5);}
-    .card-badge.rental{background:#c8a200;color:#1a0a00;box-shadow:0 2px 8px rgba(200,162,0,.5);}
-    .card-badge.soon{background:#6a35c8;box-shadow:0 2px 8px rgba(106,53,200,.5);}
-    .score-bar{position:absolute;bottom:0;left:0;right:0;height:3px;z-index:6;background:rgba(0,0,0,.4);}
+    /* TAPE SPINE / CASE */
+    .card-sleeve{
+      position:relative;
+      border-radius:3px 3px 2px 2px;
+      overflow:hidden;
+      background:#0d0500;
+      aspect-ratio:2/3;
+      /* resting shadow: short, tight — tape sitting on wood */
+      box-shadow:
+        3px 6px 12px rgba(0,0,0,.7),
+        -1px 0 0 rgba(255,215,0,.08),
+        1px 0 0 rgba(0,0,0,.5);
+      transition: box-shadow .22s ease;
+    }
+    .card-sleeve img{width:100%;height:100%;object-fit:cover;display:block;transition:filter .22s;}
+
+    /* Blockbuster colour stripe at top of each tape */
+    .card-sleeve::before{
+      content:'';
+      position:absolute;
+      top:0;left:0;right:0;
+      height:7px;
+      background:linear-gradient(90deg, var(--bb-blue) 0%, var(--bb-yellow) 50%, var(--bb-blue) 100%);
+      z-index:2;
+      opacity:.9;
+    }
+    /* Subtle left-edge spine highlight (like a real cassette) */
+    .card-sleeve::after{
+      content:'';
+      position:absolute;
+      top:0;left:0;bottom:0;
+      width:4px;
+      background:linear-gradient(to right,rgba(255,255,255,.08),transparent);
+      z-index:2;
+      pointer-events:none;
+    }
+
+    .card-shine{position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.14) 0%,transparent 55%);opacity:0;transition:opacity .22s;z-index:3;pointer-events:none;}
+    .card-badge{position:absolute;top:10px;right:6px;background:var(--bb-neon-r);color:white;font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:2px 5px;border-radius:2px;z-index:4;box-shadow:0 2px 6px rgba(255,34,68,.5);}
+    .card-badge.rental{background:#c8a200;color:#1a0a00;box-shadow:0 2px 6px rgba(200,162,0,.5);}
+    .card-badge.soon{background:#6a35c8;box-shadow:0 2px 6px rgba(106,53,200,.5);}
+    .score-bar{position:absolute;bottom:0;left:0;right:0;height:3px;z-index:6;background:rgba(0,0,0,.5);}
     .score-bar-fill{height:100%;background:linear-gradient(90deg,var(--bb-accent),var(--bb-yellow));transition:width .6s ease;}
-    .rank-num{position:absolute;top:8px;left:8px;width:22px;height:22px;border-radius:50%;background:var(--bb-yellow);color:var(--bb-blue);font-family:'Bebas Neue',sans-serif;font-size:.9rem;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.6);}
+    .rank-num{position:absolute;top:11px;left:6px;width:20px;height:20px;border-radius:50%;background:var(--bb-yellow);color:var(--bb-blue);font-family:'Bebas Neue',sans-serif;font-size:.85rem;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 5px rgba(0,0,0,.6);}
     .rank-num.r2{background:#c0c0c0;color:#1a1a1a;}
     .rank-num.r3{background:#cd7f32;color:white;}
-    .hover-info{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,.95) 0%,rgba(0,0,0,.7) 60%,transparent 100%);padding:1.5rem .6rem .6rem;opacity:0;transform:translateY(4px);transition:all .2s ease;z-index:5;}
-    .hover-title{font-family:'Barlow Condensed',sans-serif;font-size:.8rem;font-weight:700;color:white;line-height:1.2;margin-bottom:2px;}
-    .hover-meta{font-size:.65rem;color:rgba(255,255,255,.6);display:flex;gap:6px;align-items:center;}
-    .hover-score{font-family:'Barlow Condensed',sans-serif;font-size:.6rem;font-weight:700;letter-spacing:1px;color:var(--bb-yellow);}
+    .hover-info{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,.96) 0%,rgba(0,0,0,.72) 60%,transparent 100%);padding:1.8rem .6rem .6rem;opacity:0;transform:translateY(5px);transition:all .2s ease;z-index:5;}
+    .hover-title{font-family:'Barlow Condensed',sans-serif;font-size:.78rem;font-weight:700;color:white;line-height:1.2;margin-bottom:2px;}
+    .hover-meta{font-size:.62rem;color:rgba(255,255,255,.6);display:flex;gap:6px;align-items:center;}
+    .hover-score{font-family:'Barlow Condensed',sans-serif;font-size:.58rem;font-weight:700;letter-spacing:1px;color:var(--bb-yellow);}
     .hover-providers{display:flex;gap:3px;flex-wrap:wrap;margin-top:4px;}
     .rating-star{color:var(--bb-yellow);}
-    .card-label{padding:6px 4px 4px;}
-    .card-title{font-family:'Barlow Condensed',sans-serif;font-size:.78rem;font-weight:700;color:var(--bb-text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .card-year{font-size:.62rem;color:var(--bb-muted);font-family:'Barlow Condensed',sans-serif;}
-    .poster-placeholder{width:100%;height:100%;background:linear-gradient(135deg,#0d2060 0%,#1a0a40 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;font-size:2.5rem;}
-    .poster-placeholder span{font-family:'Barlow Condensed',sans-serif;font-size:.65rem;letter-spacing:1px;color:rgba(255,215,0,.3);text-align:center;padding:0 .5rem;}
+
+    /* Label below tape */
+    .card-label{padding:5px 3px 3px;}
+    .card-title{font-family:'Barlow Condensed',sans-serif;font-size:.74rem;font-weight:700;color:var(--bb-text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .card-year{font-size:.6rem;color:var(--bb-muted);font-family:'Barlow Condensed',sans-serif;}
+    .poster-placeholder{width:100%;height:100%;background:linear-gradient(135deg,#0d2060 0%,#1a0a40 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;font-size:2rem;}
+    .poster-placeholder span{font-family:'Barlow Condensed',sans-serif;font-size:.6rem;letter-spacing:1px;color:rgba(255,215,0,.3);text-align:center;padding:0 .5rem;}
 
     /* Shelf-level loading spinner (genre fetch) */
     .shelf-loading{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:.75rem;padding:2rem;font-family:'Barlow Condensed',sans-serif;font-size:.8rem;letter-spacing:2px;color:var(--bb-accent);text-transform:uppercase;}
@@ -208,7 +359,8 @@
     footer span{color:var(--bb-yellow);}
     @media(max-width:640px){
       .sign-title{font-size:2rem;}
-      .movie-grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;}
+      .movie-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:0 4px;}
+      .shelf-stage{padding:12px 6px 0;}
       .modal-inner{flex-direction:column;}
       .modal-poster{width:100%;min-height:180px;}
       .modal-poster img{border-radius:8px 8px 0 0;max-height:240px;}
@@ -312,10 +464,13 @@
   <main class="shelf-section">
     <div class="shelf-row" id="row-streaming">
       <div class="shelf-row-label">📺 New to Streaming</div>
-      <div class="movie-grid" id="grid-streaming"></div>
+      <div class="shelf-stage">
+        <div class="movie-grid" id="grid-streaming"></div>
+      </div>
       <div class="shelf-plank"></div>
+      <div class="shelf-underlight"></div>
     </div>
-    <div class="shelf-row" style="margin-top:3.5rem;" id="row-rental">
+    <div class="shelf-row" style="margin-top:4rem;" id="row-rental">
       <div class="shelf-row-label">
         🎟 Top Rentals &amp; VOD
         <div class="legend-wrap">
@@ -328,13 +483,19 @@
           </div>
         </div>
       </div>
-      <div class="movie-grid" id="grid-rental"></div>
+      <div class="shelf-stage">
+        <div class="movie-grid" id="grid-rental"></div>
+      </div>
       <div class="shelf-plank"></div>
+      <div class="shelf-underlight"></div>
     </div>
-    <div class="shelf-row" style="margin-top:3.5rem;" id="row-upcoming">
+    <div class="shelf-row" style="margin-top:4rem;" id="row-upcoming">
       <div class="shelf-row-label">📅 Coming Soon</div>
-      <div class="movie-grid" id="grid-upcoming"></div>
+      <div class="shelf-stage">
+        <div class="movie-grid" id="grid-upcoming"></div>
+      </div>
       <div class="shelf-plank"></div>
+      <div class="shelf-underlight"></div>
     </div>
   </main>
 
