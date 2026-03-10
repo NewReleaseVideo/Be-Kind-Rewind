@@ -711,15 +711,38 @@ async function loadAll() {
   rentalPool.sort((a,b) => (b._score?.total||0) - (a._score?.total||0));
   pools.rental = rentalPool;
 
-  // Streaming pool: deduplicated discover pages
+  // Streaming pool: deduplicated discover pages, strictly released on or before today
   const streamSeen = new Set();
   pools.streaming = [...str1.results,...str2.results,...str3.results]
-    .filter(m => { if(streamSeen.has(m.id)) return false; streamSeen.add(m.id); return true; });
+    .filter(m => {
+      if (streamSeen.has(m.id)) return false;
+      streamSeen.add(m.id);
+      // Must have a release date that is today or in the past
+      if (!m.release_date) return false;
+      const daysOld = (Date.now() - new Date(m.release_date).getTime()) / 86400000;
+      return daysOld >= 0;
+    });
 
-  // Upcoming pool
+  // Upcoming pool: strictly future release dates only, deduplicated
   const upSeen = new Set();
   pools.upcoming = [...up1.results,...up2.results]
-    .filter(m => { if(upSeen.has(m.id)) return false; upSeen.add(m.id); return true; });
+    .filter(m => {
+      if (upSeen.has(m.id)) return false;
+      upSeen.add(m.id);
+      // Must have a release date strictly in the future
+      if (!m.release_date) return false;
+      const daysUntil = (new Date(m.release_date).getTime() - Date.now()) / 86400000;
+      return daysUntil > 0;
+    });
+
+  // ── Cross-pool deduplication ──────────────────────────────
+  // Priority: rental > streaming > upcoming
+  // A movie that appears in rental is removed from streaming & upcoming.
+  // A movie in streaming is removed from upcoming.
+  const rentalIds   = new Set(pools.rental.map(m => m.id));
+  const streamIds   = new Set(pools.streaming.map(m => m.id));
+  pools.streaming   = pools.streaming.filter(m => !rentalIds.has(m.id));
+  pools.upcoming    = pools.upcoming.filter(m => !rentalIds.has(m.id) && !streamIds.has(m.id));
 
   setBar(65); setText('Fetching watch providers...');
 
@@ -771,21 +794,26 @@ async function fetchForGenre(genreId) {
     pools.rental.push(...newRental);
     pools.rental.sort((a,b)=>(b._score?.total||0)-(a._score?.total||0));
 
-    // Merge streaming
+    // Merge streaming — only already-released titles, not already in rental
     const existingStreamIds = new Set(pools.streaming.map(m=>m.id));
     const newStream = [...s1.results,...s2.results].filter(m=>{
-      if(existingStreamIds.has(m.id)) return false;
+      if (existingStreamIds.has(m.id) || existingIds.has(m.id)) return false;
       existingStreamIds.add(m.id);
-      return true;
+      if (!m.release_date) return false;
+      const daysOld = (Date.now() - new Date(m.release_date).getTime()) / 86400000;
+      return daysOld >= 0;
     });
     pools.streaming.push(...newStream);
 
-    // Merge upcoming
+    // Merge upcoming — only strictly future titles, not already in rental or streaming
     const existingUpIds = new Set(pools.upcoming.map(m=>m.id));
+    const allReleasedIds = new Set([...existingIds, ...existingStreamIds]);
     const newUp = up1.results.filter(m=>{
-      if(existingUpIds.has(m.id)) return false;
+      if (existingUpIds.has(m.id) || allReleasedIds.has(m.id)) return false;
       existingUpIds.add(m.id);
-      return true;
+      if (!m.release_date) return false;
+      const daysUntil = (new Date(m.release_date).getTime() - Date.now()) / 86400000;
+      return daysUntil > 0;
     });
     pools.upcoming.push(...newUp);
 
