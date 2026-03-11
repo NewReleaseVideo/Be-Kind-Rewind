@@ -113,23 +113,23 @@
     .shelf-row{
       position:relative;
       margin-bottom:5rem;
-      perspective:900px;
-      perspective-origin:50% 60%;
+      perspective:1400px;
+      perspective-origin:50% 55%;
     }
     .shelf-row-label{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:3px;color:var(--bb-accent);margin-bottom:1rem;display:flex;align-items:center;gap:.5rem;}
     .shelf-row-label::after{content:'';flex:1;height:1px;background:linear-gradient(to right,rgba(255,215,0,.3),transparent);}
 
     /* The actual shelf surface — tilted back in 3D */
     .shelf-stage{
-      transform: rotateX(4deg);
+      transform: rotateX(7deg);
       transform-style: preserve-3d;
       transform-origin: bottom center;
-      padding: 18px 12px 0;
+      padding: 20px 12px 0;
       background:
         /* top-face grain highlight */
-        linear-gradient(180deg, rgba(255,180,80,.06) 0%, transparent 30%),
-        /* base shelf colour */
-        linear-gradient(180deg, #4a2800 0%, #2e1600 100%);
+        linear-gradient(180deg, rgba(255,180,80,.09) 0%, rgba(255,140,40,.03) 20%, transparent 50%),
+        /* depth darkening toward back */
+        linear-gradient(180deg, #1a0c00 0%, #3a2000 30%, #4a2800 100%);
       border-radius: 4px 4px 0 0;
       position: relative;
     }
@@ -198,7 +198,7 @@
     .shelf-underlight{
       height:14px;
       background:radial-gradient(ellipse at 50% 0%, rgba(255,140,30,.18) 0%, transparent 70%);
-      margin-top:0;
+            margin-top:0;
     }
 
     /* MOVIE GRID — flat inside the tilted stage */
@@ -216,28 +216,31 @@
       cursor:pointer;
       transform-origin: bottom center;
       transform: translateZ(0);
-      transition: transform .22s cubic-bezier(.22,.68,0,1.4), z-index 0s;
-      animation: cardSlotIn .4s cubic-bezier(.22,.68,0,1.2) both;
+      transition: transform .3s cubic-bezier(.22,.68,0,1.4);
+      animation: cardSlotIn .5s cubic-bezier(.22,.68,0,1.15) both;
+      will-change: transform;
+      transform-style: preserve-3d;
       z-index:1;
     }
     @keyframes cardSlotIn{
-      from{opacity:0; transform:translateY(-28px) scaleY(.9);}
-      to  {opacity:1; transform:translateY(0)     scaleY(1);}
+      from{opacity:0; transform:translateY(-40px) translateZ(-80px) scale(.85);}
+      to  {opacity:1; transform:translateY(0) translateZ(0) scale(1);}
     }
-    /* Pull tape off shelf on hover — lifts up and forward */
+    /* Pull tape off shelf on hover — JS controls tilt, CSS provides base lift + fallback */
     .movie-card:hover{
-      transform: translateY(-22px) translateZ(40px) scale(1.06);
+      transform: translateY(-28px) translateZ(60px) scale(1.1);
       z-index:20;
     }
     .movie-card:hover .card-shine{opacity:1;}
     .movie-card:hover .hover-info{opacity:1;transform:translateY(0);}
-    .movie-card:hover .card-sleeve img{filter:brightness(1.1) saturate(1.15);}
-    /* Drop shadow under lifted tape */
+    .movie-card:hover .card-sleeve img{filter:brightness(1.12) saturate(1.2);}
+    /* Drop shadow under lifted tape — deeper, with golden rim glow */
     .movie-card:hover .card-sleeve{
       box-shadow:
-        6px 18px 28px rgba(0,0,0,.75),
-        -2px 2px 6px rgba(0,0,0,.4),
-        0 0 0 1px rgba(255,215,0,.15);
+        0 32px 52px rgba(0,0,0,.9),
+        -4px 6px 16px rgba(0,0,0,.55),
+        0 0 0 1px rgba(255,215,0,.35),
+        0 0 40px rgba(255,200,60,.14);
     }
 
     /* TAPE SPINE / CASE */
@@ -277,7 +280,7 @@
       pointer-events:none;
     }
 
-    .card-shine{position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.14) 0%,transparent 55%);opacity:0;transition:opacity .22s;z-index:3;pointer-events:none;}
+    .card-shine{position:absolute;inset:0;background:radial-gradient(circle at 50% 30%,rgba(255,255,255,.22) 0%,rgba(255,255,255,.06) 40%,transparent 65%);opacity:0;transition:opacity .25s;z-index:3;pointer-events:none;}
     .card-badge{position:absolute;top:10px;right:6px;background:var(--bb-neon-r);color:white;font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:2px 5px;border-radius:2px;z-index:4;box-shadow:0 2px 6px rgba(255,34,68,.5);}
     .card-badge.rental{background:#c8a200;color:#1a0a00;box-shadow:0 2px 6px rgba(200,162,0,.5);}
     .card-badge.soon{background:#6a35c8;box-shadow:0 2px 6px rgba(106,53,200,.5);}
@@ -942,6 +945,7 @@ function renderShelf(key, movies, badge, showRank) {
   grid.querySelectorAll('.movie-card').forEach(c =>
     c.addEventListener('click', () => openModal(+c.dataset.id))
   );
+  addCardInteractivity();
 }
 
 function movieCard(m, badge, i, showRank) {
@@ -994,7 +998,6 @@ function movieCard(m, badge, i, showRank) {
     </div>
   </div>`;
 }
-
 function showSkeletons() {
   ['streaming','rental','upcoming'].forEach(key => {
     const grid = document.getElementById(`grid-${key}`);
@@ -1220,6 +1223,64 @@ document.getElementById('reloadBtn').addEventListener('click', () => {
 });
 
 // ============================================================
+// CARD INTERACTIVITY — 3D tilt, moving glare, neighbor push
+// ============================================================
+function addCardInteractivity() {
+  document.querySelectorAll('.movie-card:not([data-tilt])').forEach(card => {
+    card.dataset.tilt = '1';
+    let raf;
+
+    card.addEventListener('mouseenter', () => {
+      card.style.zIndex = '20';
+      // Push immediate neighbors apart like physical tape cases
+      const siblings = Array.from(card.parentElement.children);
+      const idx = siblings.indexOf(card);
+      const prev = siblings[idx - 1];
+      const next = siblings[idx + 1];
+      if (prev && prev.dataset.tilt) prev.style.transform = 'translateX(-10px)';
+      if (next && next.dataset.tilt) next.style.transform = 'translateX(10px)';
+    });
+
+    card.addEventListener('mousemove', e => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const rect = card.getBoundingClientRect();
+        const dx = (e.clientX - rect.left - rect.width  / 2) / (rect.width  / 2); // -1…1
+        const dy = (e.clientY - rect.top  - rect.height / 2) / (rect.height / 2); // -1…1
+        const rotY =  dx * 18;   // ±18° side tilt
+        const rotX = -dy * 11;   // ±11° top/bottom tilt
+        const gx   = ((dx + 1) / 2 * 100).toFixed(1);
+        const gy   = ((dy + 1) / 2 * 100).toFixed(1);
+
+        card.style.transform = `translateY(-28px) translateZ(60px) scale(1.1) rotateY(${rotY}deg) rotateX(${rotX}deg)`;
+
+        const shine = card.querySelector('.card-shine');
+        if (shine) {
+          shine.style.background = `radial-gradient(circle at ${gx}% ${gy}%, rgba(255,255,255,.30) 0%, rgba(255,255,255,.08) 38%, transparent 62%)`;
+          shine.style.opacity = '1';
+        }
+      });
+    });
+
+    card.addEventListener('mouseleave', () => {
+      cancelAnimationFrame(raf);
+      card.style.transform = '';
+      card.style.zIndex   = '';
+      const shine = card.querySelector('.card-shine');
+      if (shine) { shine.style.opacity = '0'; shine.style.background = ''; }
+
+      // Reset neighbors
+      const siblings = Array.from(card.parentElement.children);
+      const idx = siblings.indexOf(card);
+      const prev = siblings[idx - 1];
+      const next = siblings[idx + 1];
+      if (prev) prev.style.transform = '';
+      if (next) next.style.transform = '';
+    });
+  });
+}
+
+// ============================================================
 // BOOT
 // ============================================================
 async function boot() {
@@ -1236,24 +1297,3 @@ async function boot() {
       ls.classList.add('fade-out');
       setTimeout(()=>{ ls.style.display='none'; }, 500);
       renderAll();
-      const d = new Date();
-      document.getElementById('lastUpdated').textContent =
-        `Live · ${d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`;
-    }, 300);
-  } catch(e) {
-    ls.style.display='none';
-    ['streaming','rental','upcoming'].forEach(k=>{
-      const g=document.getElementById(`grid-${k}`);
-      if(g) g.innerHTML=`<div class="shelf-error"><div class="err-msg">⚠️ Failed to load</div><div class="err-sub">${esc(e.message)}</div></div>`;
-    });
-  }
-}
-
-boot();
-</script>
-<script>
-  if('serviceWorker' in navigator)
-    window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
-</script>
-</body>
-</html>
