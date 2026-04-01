@@ -105,6 +105,11 @@
     .mpaa-reset.active{border-color:var(--bb-yellow);color:var(--bb-yellow);}
     /* MPAA badge on card */
     .mpaa-card-badge{position:absolute;bottom:8px;left:6px;font-family:'Bebas Neue',sans-serif;font-size:.65rem;letter-spacing:1px;padding:2px 5px;border-radius:2px;z-index:4;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.65);color:rgba(255,255,255,.85);}
+    .mpaa-card-badge[data-mpaa="G"]    {border-color:#1db954;color:#1db954;background:rgba(29,185,84,.15);}
+    .mpaa-card-badge[data-mpaa="PG"]   {border-color:#00a8e0;color:#00a8e0;background:rgba(0,168,224,.15);}
+    .mpaa-card-badge[data-mpaa="PG-13"]{border-color:var(--bb-yellow);color:var(--bb-yellow);background:rgba(255,215,0,.15);}
+    .mpaa-card-badge[data-mpaa="R"]    {border-color:#ff7700;color:#ff7700;background:rgba(255,119,0,.15);}
+    .mpaa-card-badge[data-mpaa="NC-17"]{border-color:var(--bb-neon-r);color:var(--bb-neon-r);background:rgba(255,34,68,.15);}
 
     /* SHELF */
     .shelf-section{position:relative;z-index:1;max-width:1400px;margin:1.5rem auto 0;padding:0 1.5rem 4rem;}
@@ -198,7 +203,7 @@
     .shelf-underlight{
       height:14px;
       background:radial-gradient(ellipse at 50% 0%, rgba(255,140,30,.18) 0%, transparent 70%);
-            margin-top:0;
+      margin-top:0;
     }
 
     /* MOVIE GRID — flat inside the tilted stage */
@@ -723,7 +728,7 @@ async function loadAll() {
       // Must have a release date that is today or in the past
       if (!m.release_date) return false;
       const daysOld = (Date.now() - new Date(m.release_date).getTime()) / 86400000;
-      return daysOld >= 0;
+      return daysOld >= 0 && daysOld <= 365;
     });
 
   // Upcoming pool: strictly future release dates only, deduplicated
@@ -804,7 +809,7 @@ async function fetchForGenre(genreId) {
       existingStreamIds.add(m.id);
       if (!m.release_date) return false;
       const daysOld = (Date.now() - new Date(m.release_date).getTime()) / 86400000;
-      return daysOld >= 0;
+      return daysOld >= 0 && daysOld <= 365;
     });
     pools.streaming.push(...newStream);
 
@@ -897,6 +902,18 @@ async function ensureCertsForVisible() {
   renderAll();
 }
 
+// Pre-fetch certs for the visible cards on each shelf at boot
+async function prefetchVisibleCerts() {
+  const toFetch = [
+    ...pools.streaming.slice(0, 20),
+    ...pools.rental.slice(0, 20),
+    ...pools.upcoming.slice(0, 16),
+  ].filter(m => !m._certFetched);
+  if (!toFetch.length) return;
+  await Promise.allSettled(toFetch.map(fetchCertification));
+  renderAll();
+}
+
 async function handleFilterChange(newFilter) {
   genreFilter = newFilter;
 
@@ -968,7 +985,7 @@ function movieCard(m, badge, i, showRank) {
     ? `<div class="score-bar"><div class="score-bar-fill" style="width:${m._score.total}%"></div></div>` : '';
 
   const mpaaBadge = m._mpaa
-    ? `<div class="mpaa-card-badge">${esc(m._mpaa)}</div>` : '';
+    ? `<div class="mpaa-card-badge" data-mpaa="${esc(m._mpaa)}">${esc(m._mpaa)}</div>` : '';
 
   const provDots = (m._flatrate||[]).slice(0,3).map(p=>{
     const info=PROVIDER_MAP[p.provider_id];
@@ -998,6 +1015,7 @@ function movieCard(m, badge, i, showRank) {
     </div>
   </div>`;
 }
+
 function showSkeletons() {
   ['streaming','rental','upcoming'].forEach(key => {
     const grid = document.getElementById(`grid-${key}`);
@@ -1297,3 +1315,25 @@ async function boot() {
       ls.classList.add('fade-out');
       setTimeout(()=>{ ls.style.display='none'; }, 500);
       renderAll();
+      prefetchVisibleCerts();
+      const d = new Date();
+      document.getElementById('lastUpdated').textContent =
+        `Live · ${d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`;
+    }, 300);
+  } catch(e) {
+    ls.style.display='none';
+    ['streaming','rental','upcoming'].forEach(k=>{
+      const g=document.getElementById(`grid-${k}`);
+      if(g) g.innerHTML=`<div class="shelf-error"><div class="err-msg">⚠️ Failed to load</div><div class="err-sub">${esc(e.message)}</div></div>`;
+    });
+  }
+}
+
+boot();
+</script>
+<script>
+  if('serviceWorker' in navigator)
+    window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+</script>
+</body>
+</html>
