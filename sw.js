@@ -1,4 +1,4 @@
-const CACHE_NAME = 'new-release-wall-v1';
+const CACHE_NAME = 'new-release-wall-v2';
 const STATIC_ASSETS = [
   './',
   './index.html',
