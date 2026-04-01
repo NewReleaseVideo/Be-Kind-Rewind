@@ -710,7 +710,8 @@ async function loadAll() {
     if (rentalSeen.has(m.id)) continue;
     rentalSeen.add(m.id);
     const daysOld = m.release_date ? (Date.now()-new Date(m.release_date).getTime())/86400000 : 999;
-    if (daysOld < 0 || daysOld > 120) continue;
+    const releaseYear = m.release_date ? parseInt(m.release_date.slice(0,4)) : 0;
+    if (daysOld < 0 || daysOld > 120 || releaseYear < new Date().getFullYear() - 5) continue;
     rentalPool.push(m);
   }
 
@@ -796,7 +797,8 @@ async function fetchForGenre(genreId) {
       if(existingIds.has(m.id)) return false;
       existingIds.add(m.id);
       const daysOld = m.release_date?(Date.now()-new Date(m.release_date).getTime())/86400000:999;
-      return daysOld>=0 && daysOld<=120;
+      const releaseYear = m.release_date ? parseInt(m.release_date.slice(0,4)) : 0;
+      return daysOld>=0 && daysOld<=120 && releaseYear >= new Date().getFullYear() - 5;
     });
     newRental.forEach(scoreMovie);
     pools.rental.push(...newRental);
